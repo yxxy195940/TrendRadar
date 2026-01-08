@@ -5,7 +5,7 @@ app:
 
 gemini:
   api_key: "${GEMINI_API_KEY}"
-  model: "gemini-1.5-pro"
+  model: "gemini-2.5-flash"
   system_prompt: |
     你是一个趋势分析助手，请结合输入内容给出结构化分析与重点结论。
   temperature: 0.2
