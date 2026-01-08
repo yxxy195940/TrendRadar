@@ -1,0 +1,28 @@
+app:
+  name: gemini-runner
+  schedule: "0 8 * * *"
+  timezone: "Asia/Shanghai"
+
+gemini:
+  api_key: "${GEMINI_API_KEY}"
+  model: "gemini-1.5-pro"
+  system_prompt: |
+    你是一个趋势分析助手，请结合输入内容给出结构化分析与重点结论。
+  temperature: 0.2
+  max_tokens: 2048
+
+input:
+  mode: "file"
+  file_path: "config/input.txt"
+  directory_path: "input"
+  command: ""
+
+output:
+  save_to_output_dir: true
+  output_prefix: "gemini_daily"
+  format: "markdown"
+
+push:
+  enabled: true
+  channels: []
+  title_template: "[Gemini 日报] {date}"
