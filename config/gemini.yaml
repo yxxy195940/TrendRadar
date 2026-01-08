@@ -1,0 +1,27 @@
+# Gemini Runner 模块配置（示例）
+# 配置优先级：环境变量 > config/gemini.yaml > 默认值
+
+# 是否启用 Gemini Runner
+enabled: false
+
+# 系统提示词（用于统一分析风格）
+system_prompt: |-
+  你是 TrendRadar 的 AI 分析助手，请基于本地新闻数据进行趋势总结与洞察输出。
+
+# 提问内容（运行时可被 API 入参覆盖）
+question: "请总结今天的热点趋势，并给出简要洞察。"
+
+# 输入来源配置
+input_source:
+  # 类型：output(项目 output 目录)、file(单文件)、directory(指定目录)
+  type: "output"
+  # 路径：type=output 时可省略；其他类型填写相对或绝对路径
+  path: "output"
+
+# 推送渠道（为空则不主动推送，仅供 API/CLI 调用）
+# 可选值：feishu | dingtalk | wework | telegram | email | ntfy | bark | slack
+push_channels:
+  - "feishu"
+
+# 执行计划（Cron 表达式，留空表示仅手动触发）
+schedule: "0 * * * *"
