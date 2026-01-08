@@ -54,6 +54,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY main.py .
+COPY gemini_runner.py .
 COPY docker/manage.py .
 
 # 复制 entrypoint.sh 并强制转换为 LF 格式
@@ -63,6 +64,12 @@ RUN sed -i 's/\r$//' /entrypoint.sh.tmp && \
     chmod +x /entrypoint.sh && \
     chmod +x manage.py && \
     mkdir -p /app/config /app/output
+
+# 复制 entrypoint-gemini.sh 并强制转换为 LF 格式
+COPY docker/entrypoint-gemini.sh /entrypoint-gemini.sh.tmp
+RUN sed -i 's/\r$//' /entrypoint-gemini.sh.tmp && \
+    mv /entrypoint-gemini.sh.tmp /entrypoint-gemini.sh && \
+    chmod +x /entrypoint-gemini.sh
 
 ENV PYTHONUNBUFFERED=1 \
     CONFIG_PATH=/app/config/config.yaml \

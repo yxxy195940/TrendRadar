@@ -59,6 +59,28 @@ services:
       - RUN_MODE=${RUN_MODE:-cron}
       - IMMEDIATE_RUN=${IMMEDIATE_RUN:-true}
 
+  trend-radar-gemini:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: wantcat/trendradar:latest
+    container_name: trend-radar-gemini
+    restart: unless-stopped
+    entrypoint: ["/entrypoint-gemini.sh"]
+
+    volumes:
+      - ../config:/app/config:ro
+      - ../output:/app/output
+
+    environment:
+      - TZ=Asia/Shanghai
+      - GEMINI_CRON_SCHEDULE=${GEMINI_CRON_SCHEDULE:-0 9 * * *}
+      - GEMINI_TASK_CMD=${GEMINI_TASK_CMD:-/usr/local/bin/python gemini_runner.py}
+      - GEMINI_IMMEDIATE_RUN=${GEMINI_IMMEDIATE_RUN:-false}
+      - GEMINI_RUN_MODE=${GEMINI_RUN_MODE:-cron}
+      - GEMINI_CONFIG_PATH=${GEMINI_CONFIG_PATH:-/app/config/gemini_runner.yaml}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+
   trend-radar-mcp:
     build:
       context: ..
