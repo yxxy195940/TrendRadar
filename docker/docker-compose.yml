@@ -84,7 +84,7 @@ services:
 
     environment:
       - TZ=Asia/Shanghai
-      - GEMINI_CRON_SCHEDULE=${GEMINI_CRON_SCHEDULE:-0 9 * * *}
+      - GEMINI_CRON_SCHEDULE=${GEMINI_CRON_SCHEDULE:-0 8 * * *}
       - GEMINI_TASK_CMD=${GEMINI_TASK_CMD:-/usr/local/bin/python gemini_runner.py}
       - GEMINI_IMMEDIATE_RUN=${GEMINI_IMMEDIATE_RUN:-false}
       - GEMINI_RUN_MODE=${GEMINI_RUN_MODE:-cron}
