@@ -76,7 +76,7 @@ services:
     image: wantcat/trendradar:latest
     container_name: trend-radar-gemini
     restart: unless-stopped
-    entrypoint: ["/entrypoint-gemini.sh"]
+    entrypoint: ["entrypoint-gemini.sh"]
 
     volumes:
       - ../config:/app/config:ro
