@@ -372,6 +372,12 @@ def _dispatch_notifications(
     channels = push_config.channels or configured_channels
     text = f"{title}\n\n{body}"
     print(f"ℹ️ Gemini 推送渠道: {', '.join(channels) if channels else '无'}")
+    wework_urls = _parse_multi_accounts(notification["wework_url"])
+    wework_count = len([url for url in wework_urls if url])
+    if wework_urls or notification["wework_url"]:
+        print(f"ℹ️ 企业微信配置检测: 账号数={wework_count}, msg_type={notification['wework_msg_type']}")
+    else:
+        print("ℹ️ 企业微信配置检测: 未读取到 wework_url")
 
     for channel in channels:
         if channel == "feishu":
