@@ -1506,7 +1506,6 @@ frequency_words.txt 文件增加了一个【必须词】功能，使用 + 号
     |------|------|
     | `config/config.yaml` | 主配置文件：推送模式、时间窗口、平台列表、热点权重等 |
     | `config/frequency_words.txt` | 关键词文件：设置你关心的词汇，筛选推送内容 |
-    | `config/gemini.yaml` | Gemini Runner 配置：系统提示词、输入源、推送渠道、调度等 |
     | `.github/workflows/crawler.yml` | 执行频率：控制多久运行一次（⚠️ 谨慎修改） |
 
     👉 **详细配置教程**：[配置详解](#配置详解)
@@ -2857,48 +2856,6 @@ AI 分析功能**不是**直接查询网络实时数据，而是分析你**本�
    - 测试数据仅供快速体验，**建议自行部署项目**获取实时数据
    - 按照 [快速开始](#-快速开始) 部署运行项目
    - 等待至少 1 天积累新闻数据后，即可查询最新热点
-
-### Gemini Runner 配置（可选）
-
-Gemini Runner 用于定时读取本地新闻数据并生成摘要/洞察，可独立于 MCP 客户端使用。配置文件位于 `config/gemini.yaml`。
-
-**配置优先级**：环境变量 > `config/gemini.yaml` > 默认值。
-
-**配置示例**：
-
-```yaml
-enabled: false
-system_prompt: |-
-  你是 TrendRadar 的 AI 分析助手，请基于本地新闻数据进行趋势总结与洞察输出。
-question: "请总结今天的热点趋势，并给出简要洞察。"
-input_source:
-  type: "output"
-  path: "output"
-push_channels:
-  - "feishu"
-schedule: "0 * * * *"
-```
-
-**字段说明与默认值**：
-
-| 字段 | 类型 | 默认值 | 说明 |
-| --- | --- | --- | --- |
-| `enabled` | bool | `false` | 是否启用 Gemini Runner |
-| `system_prompt` | string | 内置提示词 | 用于统一分析风格与输出口径 |
-| `question` | string | 空 | 默认提问内容（可被 API 入参覆盖） |
-| `input_source.type` | string | `output` | 输入来源类型：`output`/`file`/`directory` |
-| `input_source.path` | string | `output` | 输入路径（type=output 时可省略） |
-| `push_channels` | list | `[]` | 推送渠道列表（为空则不主动推送） |
-| `schedule` | string | `0 * * * *` | Cron 表达式，留空表示仅手动触发 |
-
-**环境变量映射**（用于覆盖配置文件）：
-- `GEMINI_RUNNER_ENABLED`
-- `GEMINI_RUNNER_SYSTEM_PROMPT`
-- `GEMINI_RUNNER_QUESTION`
-- `GEMINI_RUNNER_INPUT_SOURCE_TYPE`
-- `GEMINI_RUNNER_INPUT_SOURCE_PATH`
-- `GEMINI_RUNNER_PUSH_CHANNELS`（逗号分隔）
-- `GEMINI_RUNNER_SCHEDULE`
 
 
 ### 1. 快速部署
