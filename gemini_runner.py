@@ -11,7 +11,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import formataddr
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import pytz
 import requests
@@ -91,6 +91,49 @@ def _parse_multi_accounts(value: str) -> List[str]:
     if all(not item for item in items):
         return []
     return items
+
+
+def _validate_paired_configs(
+    configs: Dict[str, List[str]],
+    channel_name: str,
+    required_keys: Optional[List[str]] = None,
+) -> Tuple[bool, int]:
+    non_empty_configs = {k: v for k, v in configs.items() if v}
+
+    if not non_empty_configs:
+        return True, 0
+
+    if required_keys:
+        for key in required_keys:
+            if key not in non_empty_configs or not non_empty_configs[key]:
+                return True, 0
+
+    lengths = {k: len(v) for k, v in non_empty_configs.items()}
+    unique_lengths = set(lengths.values())
+
+    if len(unique_lengths) > 1:
+        print(f"❌ {channel_name} 配置错误：配对配置数量不一致，将跳过该渠道推送")
+        for key, length in lengths.items():
+            print(f"   - {key}: {length} 个")
+        return False, 0
+
+    return True, list(unique_lengths)[0] if unique_lengths else 0
+
+
+def _limit_accounts(accounts: List[str], max_count: int, channel_name: str) -> List[str]:
+    if len(accounts) > max_count:
+        print(
+            f"⚠️ {channel_name} 配置了 {len(accounts)} 个账号，超过最大限制 {max_count}，只使用前 {max_count} 个"
+        )
+        print("   ⚠️ 警告：如果您是 fork 用户，过多账号可能导致 GitHub Actions 运行时间过长，存在账号风险")
+        return accounts[:max_count]
+    return accounts
+
+
+def _get_account_at_index(accounts: List[str], index: int, default: str = "") -> str:
+    if index < len(accounts):
+        return accounts[index] if accounts[index] else default
+    return default
 
 
 def _read_latest_file(directory: Path) -> str:
@@ -274,7 +317,7 @@ def _send_slack(webhook_url: str, text: str) -> None:
     requests.post(webhook_url, json=payload, timeout=30).raise_for_status()
 
 
-def _load_notification_config(config_path: Path) -> Dict[str, str]:
+def _load_notification_config(config_path: Path) -> Dict[str, Any]:
     config = _load_yaml(config_path)
     notification = config.get("notification", {})
     webhooks = notification.get("webhooks", {})
@@ -295,6 +338,7 @@ def _load_notification_config(config_path: Path) -> Dict[str, str]:
         "ntfy_token": os.environ.get("NTFY_TOKEN", webhooks.get("ntfy_token", "")),
         "bark_url": os.environ.get("BARK_URL", webhooks.get("bark_url", "")),
         "slack_webhook_url": os.environ.get("SLACK_WEBHOOK_URL", webhooks.get("slack_webhook_url", "")),
+        "max_accounts_per_channel": int(notification.get("max_accounts_per_channel", 3)),
     }
 
 
@@ -306,6 +350,7 @@ def _dispatch_notifications(
 ) -> None:
     notification = _load_notification_config(config_path)
     configured_channels = []
+    max_accounts = notification["max_accounts_per_channel"]
 
     if notification["feishu_url"]:
         configured_channels.append("feishu")
@@ -326,23 +371,53 @@ def _dispatch_notifications(
 
     channels = push_config.channels or configured_channels
     text = f"{title}\n\n{body}"
+    print(f"ℹ️ Gemini 推送渠道: {', '.join(channels) if channels else '无'}")
 
     for channel in channels:
         if channel == "feishu":
-            for url in _parse_multi_accounts(notification["feishu_url"]):
-                _send_feishu(url, text)
+            urls = _parse_multi_accounts(notification["feishu_url"])
+            if urls:
+                urls = _limit_accounts(urls, max_accounts, "飞书")
+                for url in urls:
+                    if url:
+                        _send_feishu(url, text)
         elif channel == "dingtalk":
-            for url in _parse_multi_accounts(notification["dingtalk_url"]):
-                _send_dingtalk(url, title, text)
+            urls = _parse_multi_accounts(notification["dingtalk_url"])
+            if urls:
+                urls = _limit_accounts(urls, max_accounts, "钉钉")
+                for url in urls:
+                    if url:
+                        _send_dingtalk(url, title, text)
         elif channel == "wework":
             msg_type = notification["wework_msg_type"].lower()
-            for url in _parse_multi_accounts(notification["wework_url"]):
-                _send_wework(url, text, msg_type)
+            urls = _parse_multi_accounts(notification["wework_url"])
+            if urls:
+                urls = _limit_accounts(urls, max_accounts, "企业微信")
+                for url in urls:
+                    if url:
+                        print(f"➡️ 正在推送企业微信: msg_type={msg_type}")
+                        _send_wework(url, text, msg_type)
+                    else:
+                        print("⚠️ 企业微信配置存在空值账号，已跳过")
+            else:
+                print("ℹ️ 企业微信未配置推送地址")
         elif channel == "telegram":
             tokens = _parse_multi_accounts(notification["telegram_bot_token"])
             chats = _parse_multi_accounts(notification["telegram_chat_id"])
-            for token, chat_id in zip(tokens, chats):
-                _send_telegram(token, chat_id, text)
+            if tokens and chats:
+                valid, count = _validate_paired_configs(
+                    {"bot_token": tokens, "chat_id": chats},
+                    "Telegram",
+                    required_keys=["bot_token", "chat_id"],
+                )
+                if valid and count > 0:
+                    tokens = _limit_accounts(tokens, max_accounts, "Telegram")
+                    chats = chats[:len(tokens)]
+                    for i in range(len(tokens)):
+                        token = tokens[i]
+                        chat_id = chats[i]
+                        if token and chat_id:
+                            _send_telegram(token, chat_id, text)
         elif channel == "email":
             _send_email(
                 notification["email_from"],
@@ -354,17 +429,36 @@ def _dispatch_notifications(
                 notification["email_smtp_port"],
             )
         elif channel == "ntfy":
+            server_url = notification["ntfy_server_url"]
             topics = _parse_multi_accounts(notification["ntfy_topic"])
             tokens = _parse_multi_accounts(notification["ntfy_token"])
-            for index, topic in enumerate(topics):
-                token = tokens[index] if index < len(tokens) else ""
-                _send_ntfy(notification["ntfy_server_url"], topic, token, title, text)
+            if server_url and topics:
+                if tokens and len(tokens) != len(topics):
+                    print(
+                        f"❌ ntfy 配置错误：topic 数量({len(topics)})与 token 数量({len(tokens)})不一致，跳过 ntfy 推送"
+                    )
+                else:
+                    topics = _limit_accounts(topics, max_accounts, "ntfy")
+                    if tokens:
+                        tokens = tokens[:len(topics)]
+                    for index, topic in enumerate(topics):
+                        if topic:
+                            token = _get_account_at_index(tokens, index, "") if tokens else ""
+                            _send_ntfy(server_url, topic, token, title, text)
         elif channel == "bark":
-            for url in _parse_multi_accounts(notification["bark_url"]):
-                _send_bark(url, title, text)
+            urls = _parse_multi_accounts(notification["bark_url"])
+            if urls:
+                urls = _limit_accounts(urls, max_accounts, "Bark")
+                for url in urls:
+                    if url:
+                        _send_bark(url, title, text)
         elif channel == "slack":
-            for url in _parse_multi_accounts(notification["slack_webhook_url"]):
-                _send_slack(url, text)
+            urls = _parse_multi_accounts(notification["slack_webhook_url"])
+            if urls:
+                urls = _limit_accounts(urls, max_accounts, "Slack")
+                for url in urls:
+                    if url:
+                        _send_slack(url, text)
         else:
             raise ValueError(f"不支持的推送渠道: {channel}")
 
