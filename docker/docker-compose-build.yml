@@ -69,6 +69,7 @@ services:
     entrypoint: ["/entrypoint-gemini.sh"]
 
     volumes:
+      - ./entrypoint-gemini.sh:/entrypoint-gemini.sh
       - ../config:/app/config:ro
       - ../output:/app/output
 
